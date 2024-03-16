@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from .. import db, models, schema, utils
+from fastapi.security import OAuth2PasswordRequestForm
+from typing import Annotated
+from .. import db, models, oauth2, utils
 from sqlalchemy.orm import Session
 
 
@@ -10,7 +12,7 @@ router = APIRouter(
 )
 
 @router.post("/login")
-def login(user: schema.LoginUser ,db: Session = Depends(db.get_db)):
+async def login(user: Annotated[OAuth2PasswordRequestForm, Depends()] ,db: Session = Depends(db.get_db)):
     get_user = db.query(models.Users).filter(models.Users.username == user.username).first()
     
     if get_user is None:
@@ -19,8 +21,14 @@ def login(user: schema.LoginUser ,db: Session = Depends(db.get_db)):
     if not utils.verifier_hash(user.password, get_user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Information invalide")
     
+    payload = {
+        "id": get_user.id,
+        "username": get_user.username,
+        "email": get_user.email
+    }
+    token = oauth2.creer_token(payload)
     return {
-        "token": "",
+        "token": token,
         "type du token": "bearer"
     }
     
